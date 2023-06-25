@@ -1,0 +1,54 @@
+<body>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+  <script>
+    function redirectToClientSide(success_redirect_uri) {
+      window.location.replace(success_redirect_uri);
+    }
+
+    function getFormBody(details) {
+      return Object.keys(details)
+        .map(
+          (key) =>
+            encodeURIComponent(key) + "=" + encodeURIComponent(details[key])
+        )
+        .join("&");
+    }
+
+    try {
+      const urlSearchParams = new URLSearchParams(window.location.search);
+      const params = Object.fromEntries(urlSearchParams.entries());
+      const redirect_uri = "{{redirect_uri|safe}}";
+      const success_redirect_uri = "{{success_redirect_uri|safe}}";
+      if (params.flag === "google") {
+        axios
+          .get(`/api/auth/o/google-oauth2/?redirect_uri=${redirect_uri}`)
+          .then((res) => {
+            window.location.replace(res.data.authorization_url);
+          })
+          .catch((errors) => {
+            redirectToClientSide(success_redirect_uri);
+          });
+      } else if (params.state && params.code && !params.flag) {
+        const details = {
+          state: params.state,
+          code: params.code,
+        };
+        const formBody = getFormBody(details);
+        axios
+          .post(`/api/auth/o/google-oauth2/?${formBody}`)
+          .then((res) => {
+            const formBody = getFormBody(res.data);
+            window.location.replace(`${success_redirect_uri}?${formBody}`);
+          })
+          .catch((errors) => {
+            redirectToClientSide(success_redirect_uri);
+          });
+      } else {
+        redirectToClientSide(success_redirect_uri);
+      }
+    } catch {
+      redirectToClientSide(success_redirect_uri);
+    }
+  </script>
+</body>
